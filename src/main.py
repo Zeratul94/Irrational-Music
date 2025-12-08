@@ -9,7 +9,7 @@ velocity = 64  # Medium velocity
 def main():
     global scale
     scale = note_name_to_midi(input("What key should the song play in? (e.g., C, D#, F): ").strip().upper())
-    digits = get_irrational_digits(input("What number should we listen to? ").strip().lower(),
+    digits = get_digits(input("What number should we listen to? ").strip().lower(),
                                    int(input("And for how many digits? ")),
                                    base=7)
 
@@ -63,9 +63,9 @@ def note_from_scale_degree(degree_num: int) -> int:
 def triad_in_key(root: int) -> list[int]:
     return [root, (root + 2) % 8, (root + 4) % 8]
 
-def get_irrational_digits(irr_name, num_digits, base = 7) -> list[int]:
+def get_digits(num_str, num_digits, base = 7) -> list[int]:
     mp.dps = num_digits + 5  # Set decimal places for mpmath
-    match irr_name:
+    match num_str:
         case "pi":
             pi_str = convert_base(mp.pi, base, num_digits).split(".")[1]  # Only digits after the decimal point
             return [int(digit) + 1 for digit in pi_str[:num_digits]] # Add one since we one-indexed the scale degrees
@@ -76,8 +76,21 @@ def get_irrational_digits(irr_name, num_digits, base = 7) -> list[int]:
         case "phi":
             phi_str = convert_base((1 + mp.sqrt(5)) / 2, base, num_digits).split(".")[1]
             return [int(digit) + 1 for digit in phi_str[:num_digits]]
-        case _:
-            raise ValueError("Unsupported irrational number. Please use 'pi' or 'e'.")
+    
+    if "ln" in num_str:
+        arg = float(num_str[num_str.index("(")+1:num_str.index(")")])
+        ln_str = convert_base(mp.ln(arg), base, num_digits).split(".")[1]
+        return [int(digit) + 1 for digit in ln_str[:num_digits]]
+    if "sqrt" in num_str:
+        arg = float(num_str[num_str.index("(")+1:num_str.index(")")])
+        sqrt_str = convert_base(mp.sqrt(arg), base, num_digits).split(".")[1]
+        return [int(digit) + 1 for digit in sqrt_str[:num_digits]]
+    if num_str.isnumeric():
+        num = float(num_str)
+        num_str_base = convert_base(num, base, num_digits).split(".")[1]
+        return [int(digit) + 1 for digit in num_str_base[:num_digits]]
+    raise ValueError(f"Unrecognized number string: {num_str}")
+
 
 if __name__ == "__main__":
     main()
