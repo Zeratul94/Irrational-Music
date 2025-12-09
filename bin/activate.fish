@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV '/home/ghmrg/Documents/Programs/Python Scripts/Irrational Music'
+set -gx VIRTUAL_ENV '/home/ghmrg/Documents/Programs/Skool/Irrational Music'
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH

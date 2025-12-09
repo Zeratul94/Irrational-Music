@@ -17,16 +17,20 @@ def main():
 
     global port
     with mido.open_output(port_name) as port:
+        last_triad =  None
         for digit in digits:
-            notes = [note_from_scale_degree(digit) for digit in triad_in_key(int(digit))]
-            duration = 0.5  # Duration in seconds
-            for note in notes:
+            triad = [note_from_scale_degree(chord_note) for chord_note in triad_in_key(int(digit), prev_triad=last_triad)]
+            beat_time = 0.5  # Duration in seconds
+            
+            for note in triad:
                 start_note(note)
             for i in range(4):
                 start_note(note_from_scale_degree(digit + i))
-                time.sleep(duration)
-            for note in notes:
+                time.sleep(beat_time)
+            for note in triad:
                 end_note(note)
+            
+            last_triad = triad
 
 def start_note(note, channel=0):
     global port
@@ -41,10 +45,10 @@ def end_note(note, channel=0):
     port.send(note_off)
     return note_off
 
+# Convert a note name (e.g., C, D#, F) to its corresponding MIDI number.
 def note_name_to_midi(note_name):
-    """Convert a note name (e.g., C, D#, F) to its corresponding MIDI number."""
     note_names = ['C', 'ε', 'D', 'ε', 'E', 'F', 'ε', 'G', 'ε', 'A', 'ε', 'B']
-    octave = 4  # Default octave
+    octave = 3  # Default octave
     if len(note_name) > 2 and note_name[-1].isdigit():
         octave = int(note_name[-1])
         note_name = note_name[:-1]
@@ -55,13 +59,82 @@ def note_name_to_midi(note_name):
     else:
         raise ValueError(f"Invalid note name: " + note_name)
 
+# Convert a scale degree to a MIDI note number based on the global scale variable.
 def note_from_scale_degree(degree_num: int) -> int:
-    """Convert a scale degree to a MIDI note number based on the global scale variable."""
     global scale
-    return scale + degree_num - 1
+    octaves, net_degree = divmod(degree_num - 1, 7)
+    return (scale + octaves * 12 + ((net_degree) * 2 if net_degree <= 2
+                                    else 5 + (net_degree - 3) * 2))
 
-def triad_in_key(root: int) -> list[int]:
-    return [root, (root + 2) % 8, (root + 4) % 8]
+def triad_in_key(root: int, prev_triad: list[int] = []) -> list[int]:
+    notes_to_place = [root, (root + 2 - 1) % 7 + 1, (root + 4 - 1) % 7 + 1]  # 1-indexed scale degrees for root, third, fifth
+    if prev_triad and len(prev_triad) == 3:
+        old_notes = prev_triad[:]
+        new_notes: list[int] = []
+        distance_matrix: list[list[tuple[int, int]]] = [] # Each row is one desired note; each column is an old note; entries are (distance, best octave placement)
+        for note in notes_to_place:
+            distance_matrix.append([])
+            candidates = [note + 7 * k for k in range(-2, 3)]  # Consider two octaves up and down
+            for old_note in old_notes:
+                nearest_candidate = min(candidates, key=lambda c: note_dist(c, old_note))
+                distance_matrix[-1].append((note_dist(nearest_candidate, old_note), nearest_candidate))
+
+        i = 0
+        while len(distance_matrix) > 1:
+            min_dist = float('inf')
+            best_row_idx = -1
+            best_col_idx = -1
+            for row_idx, row in enumerate(distance_matrix):
+                for col_idx, (dist, note_val) in enumerate(row):
+                    if dist < min_dist:
+                        min_dist = dist
+                        best_row_idx = row_idx
+                        best_col_idx = col_idx
+            
+            new_notes.append(distance_matrix[best_row_idx][best_col_idx][1])
+            
+            distance_matrix.pop(best_row_idx)
+            for row in distance_matrix:
+                row.pop(best_col_idx)
+        
+        if len(distance_matrix) == 1:
+            new_notes.append(distance_matrix[0][0][1])
+        return new_notes
+    
+    return notes_to_place
+            
+    '''
+    if prev_triad and len(prev_triad) == 3:
+        old_notes = prev_triad[:]
+        new_notes: list[int] = []
+        minned_dists: list[list[int]] = [[
+            min(map(lambda k: (note_dist(k, old_note), k), (note + 7 * k for k in range(-2, 3))))
+            for old_note in old_notes] for note in notes_to_place]
+        while any(minned_dists):
+            # this was my attempt and it's almost surely wrong; i'm not smart enough for computational music theory
+            new_notes.append(minned_dists[min(range(len(notes_to_place)),
+                                key=lambda x: min(minned_dists[x], default=float('inf'))[0])])
+        return new_notes
+        for i, note in enumerate(notes_to_place):
+            candidates = [note + 7 * k for k in range(-2, 3)]  # Consider two octaves up and down
+        for _ in range(len(notes_to_place)):
+            for i, note in enumerate(notes_to_place):
+                attempts = [note - 14, note - 7, note, note + 7, note + 14]
+                notes_to_place[i] = min(attempts, key=lambda x: min([note_dist(x, old_note) for old_note in old_notes]))
+
+            new_notes.append(min(
+                         notes_to_place, key=lambda x: min([note_dist(x, old_note) for old_note in old_notes])
+                            ))
+            old_notes.remove(min(old_notes, key=lambda x: note_dist(x, new_notes[-1]) ))
+            notes_to_place.remove(new_notes[-1])
+        
+        return new_notes
+    return notes_to_place
+    '''
+
+# Calculate the distance in semitones betweeen two scale degrees
+def note_dist(note1: int, note2: int) -> int:
+    return abs(note_from_scale_degree(note1) - note_from_scale_degree(note2))
 
 def get_digits(num_str, num_digits, base = 7) -> list[int]:
     mp.dps = num_digits + 5  # Set decimal places for mpmath
