@@ -54,21 +54,3 @@ def convert_base(x: float, base: int, frac_places: int) -> str:
         return f"{sign}{int_str}." + "".join(frac_digits)
     else:
         return f"{sign}{int_str}"
-
-
-
-
-pi_base = {
-    10 : str(mp.pi),
-    7  : convert_base(mp.pi, 7, 50)
-}
-
-e_base = {
-    10: str(mp.e),
-    7 : convert_base(mp.e, 7, 50)
-}
-
-phi_base = {
-    10: str((1 + mp.sqrt(5)) / 2),
-    7 : convert_base((1 + mp.sqrt(5)) / 2, 7, 50)
-}

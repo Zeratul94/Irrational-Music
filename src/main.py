@@ -14,14 +14,15 @@ def main():
                                    base=7)
 
     port_name = mido.get_output_names()[0]  # Select the first available MIDI output port
-
+    
+    beat_time = 0.5  # Duration in seconds
+    
+    print(f"{note_from_scale_degree(0)}")
     global port
     with mido.open_output(port_name) as port:
         last_triad =  None
         for digit in digits:
             triad = [note_from_scale_degree(chord_note) for chord_note in triad_in_key(int(digit), prev_triad=last_triad)]
-            beat_time = 0.5  # Duration in seconds
-            
             for note in triad:
                 start_note(note)
             for i in range(4):
@@ -63,7 +64,7 @@ def note_name_to_midi(note_name):
 def note_from_scale_degree(degree_num: int) -> int:
     global scale
     octaves, net_degree = divmod(degree_num - 1, 7)
-    return (scale + octaves * 12 + ((net_degree) * 2 if net_degree <= 2
+    return (scale + octaves * 12 + ((net_degree * 2) if net_degree <= 2
                                     else 5 + (net_degree - 3) * 2))
 
 def triad_in_key(root: int, prev_triad: list[int] = []) -> list[int]:
@@ -76,16 +77,15 @@ def triad_in_key(root: int, prev_triad: list[int] = []) -> list[int]:
             distance_matrix.append([])
             candidates = [note + 7 * k for k in range(-2, 3)]  # Consider two octaves up and down
             for old_note in old_notes:
-                nearest_candidate = min(candidates, key=lambda c: note_dist(c, old_note))
-                distance_matrix[-1].append((note_dist(nearest_candidate, old_note), nearest_candidate))
+                nearest_candidate = min(candidates, key=lambda c: note_dist(note_from_scale_degree(c), old_note))
+                distance_matrix[-1].append((note_dist(note_from_scale_degree(nearest_candidate), old_note), nearest_candidate))
 
-        i = 0
         while len(distance_matrix) > 1:
             min_dist = float('inf')
             best_row_idx = -1
             best_col_idx = -1
             for row_idx, row in enumerate(distance_matrix):
-                for col_idx, (dist, note_val) in enumerate(row):
+                for col_idx, (dist, _) in enumerate(row):
                     if dist < min_dist:
                         min_dist = dist
                         best_row_idx = row_idx
@@ -102,35 +102,6 @@ def triad_in_key(root: int, prev_triad: list[int] = []) -> list[int]:
         return new_notes
     
     return notes_to_place
-            
-    '''
-    if prev_triad and len(prev_triad) == 3:
-        old_notes = prev_triad[:]
-        new_notes: list[int] = []
-        minned_dists: list[list[int]] = [[
-            min(map(lambda k: (note_dist(k, old_note), k), (note + 7 * k for k in range(-2, 3))))
-            for old_note in old_notes] for note in notes_to_place]
-        while any(minned_dists):
-            # this was my attempt and it's almost surely wrong; i'm not smart enough for computational music theory
-            new_notes.append(minned_dists[min(range(len(notes_to_place)),
-                                key=lambda x: min(minned_dists[x], default=float('inf'))[0])])
-        return new_notes
-        for i, note in enumerate(notes_to_place):
-            candidates = [note + 7 * k for k in range(-2, 3)]  # Consider two octaves up and down
-        for _ in range(len(notes_to_place)):
-            for i, note in enumerate(notes_to_place):
-                attempts = [note - 14, note - 7, note, note + 7, note + 14]
-                notes_to_place[i] = min(attempts, key=lambda x: min([note_dist(x, old_note) for old_note in old_notes]))
-
-            new_notes.append(min(
-                         notes_to_place, key=lambda x: min([note_dist(x, old_note) for old_note in old_notes])
-                            ))
-            old_notes.remove(min(old_notes, key=lambda x: note_dist(x, new_notes[-1]) ))
-            notes_to_place.remove(new_notes[-1])
-        
-        return new_notes
-    return notes_to_place
-    '''
 
 # Calculate the distance in semitones betweeen two scale degrees
 def note_dist(note1: int, note2: int) -> int:
